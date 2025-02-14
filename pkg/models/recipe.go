@@ -1,8 +1,8 @@
 package models
 
 type Recipe struct {
-	Title        string   `json:"title"`
-	Ingredients  []string `gorm:"type:jsonb" json:"ingredients"` // Stores as JSON array
-	Instructions []string `gorm:"type:jsonb" json:"instructions"`
-	Url          string   `json:"url" gorm:"primaryKey"`
+	Url          string     `json:"url" gorm:"primaryKey"`
+	Title        string     `json:"title"`
+	Ingredients  StringList `gorm:"type:jsonb" json:"ingredients"`
+	Instructions StringList `gorm:"type:jsonb" json:"instructions"`
 }

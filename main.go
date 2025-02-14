@@ -2,27 +2,23 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
-	"os"
 
-	"github.com/joho/godotenv"
+	util "github.com/tade3910/recipe_server/pkg"
+	"github.com/tade3910/recipe_server/pkg/databse"
 	"github.com/tade3910/recipe_server/pkg/routes/recipe"
 )
 
 func main() {
-	godotenv.Load()
-	port := os.Getenv("PORT")
-	if port == "" {
-		log.Fatal("Could not read port from .env file")
-	}
+	loadedEnvs := util.LoadEnvs()
+	db := databse.Init()
 	router := http.NewServeMux()
-	router.Handle("/recipe", recipe.NewRecipesHandler())
-	router.Handle("/recipe/", recipe.NewRecipeHandler())
+	router.Handle("/recipe", recipe.NewRecipesHandler(db))
+	router.Handle("/recipe/", recipe.NewRecipeHandler(db))
 	server := &http.Server{
-		Addr:    ":" + port,
+		Addr:    ":" + loadedEnvs.Port,
 		Handler: router,
 	}
-	fmt.Printf("Server listening on http://localhost:%s/\n", port)
+	fmt.Printf("Server listening on http://localhost:%s/\n", loadedEnvs.Port)
 	server.ListenAndServe()
 }

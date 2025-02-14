@@ -4,7 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
+
+	"github.com/joho/godotenv"
 )
 
 func RespondWithJSON(w http.ResponseWriter, code int, payload interface{}) error {
@@ -24,8 +28,8 @@ func RespondWithError(w http.ResponseWriter, code int, msg string) error {
 }
 
 func GetBody[T interface{}](r *http.Request, bodyStruct *T) error {
+	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
-	r.Body.Close()
 	if err != nil {
 		return fmt.Errorf("could not read body")
 	}
@@ -34,4 +38,31 @@ func GetBody[T interface{}](r *http.Request, bodyStruct *T) error {
 		return fmt.Errorf("invalid body")
 	}
 	return nil
+}
+
+type envs struct {
+	Port  string
+	DbUrl string
+}
+
+var loadedEnv *envs
+
+func LoadEnvs() *envs {
+	godotenv.Load()
+
+	if loadedEnv != nil {
+		return loadedEnv
+	}
+	port := os.Getenv("PORT")
+	dbUrl := os.Getenv("DATABASE_URL")
+	if port == "" {
+		log.Fatal("Could not read port from .env file")
+	}
+	if dbUrl == "" {
+		log.Fatal("Could not read dbUrl from .env file")
+	}
+	return &envs{
+		Port:  port,
+		DbUrl: dbUrl,
+	}
 }
