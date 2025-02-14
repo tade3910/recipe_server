@@ -1,12 +1,13 @@
 version: '3.9'
 services:
 
-  postgres:
+  database:
+    container_name: recipe_database
     image: postgres:alpine
     restart: always
-    container_name: recipe_database
     ports:
-      - 5438:5432
+      - 5432:5432
     environment:
       POSTGRES_USER: TiseTheCat
       POSTGRES_PASSWORD: FoodLover
+      POSTGRES_DB: RECIPE_DEV
