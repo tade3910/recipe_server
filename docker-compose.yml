@@ -11,3 +11,13 @@ services:
       POSTGRES_USER: TiseTheCat
       POSTGRES_PASSWORD: FoodLover
       POSTGRES_DB: RECIPE_DEV
+
+  test-database:
+    container_name: recipe_test_db
+    image: postgres:alpine
+    environment:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_pass
+      POSTGRES_DB: RECIPE_TEST
+    ports:
+      - 5400:5432
