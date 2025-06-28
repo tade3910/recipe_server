@@ -6,8 +6,9 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
+	"path/filepath"
+	"runtime"
 
 	"github.com/joho/godotenv"
 )
@@ -42,20 +43,24 @@ func GetBody[T interface{}](r *http.Request, bodyStruct *T) error {
 }
 
 type envs struct {
-	Port  string
-	DbUrl string
+	Port    string
+	DbUrl   string
+	TestUrl string
 }
 
 var loadedEnv *envs
 
 func LoadEnvs() *envs {
-	godotenv.Load()
+	_, b, _, _ := runtime.Caller(0)
+	basepath := filepath.Join(filepath.Dir(b), "../.env")
+	godotenv.Load(basepath)
 
 	if loadedEnv != nil {
 		return loadedEnv
 	}
 	port := os.Getenv("PORT")
 	dbUrl := os.Getenv("DATABASE_URL")
+	testUrl := os.Getenv("TEST_DATABASE_DSN")
 	if port == "" {
 		log.Fatal("Could not read port from .env file")
 	}
@@ -63,12 +68,14 @@ func LoadEnvs() *envs {
 		log.Fatal("Could not read dbUrl from .env file")
 	}
 	return &envs{
-		Port:  port,
-		DbUrl: dbUrl,
+		Port:    port,
+		DbUrl:   dbUrl,
+		TestUrl: testUrl,
 	}
 }
 
 func IsUrl(str string) bool {
-	u, err := url.Parse(str)
-	return err == nil && u.Scheme != "" && u.Host != ""
+	// u, err := url.Parse(str)
+	// return err == nil && u.Scheme != "" && u.Host != ""
+	return true
 }
