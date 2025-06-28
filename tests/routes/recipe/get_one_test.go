@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"testing"
 
 	util "github.com/tade3910/recipe_server/pkg"
@@ -12,21 +11,6 @@ import (
 	recipe "github.com/tade3910/recipe_server/pkg/routes"
 	test_util "github.com/tade3910/recipe_server/tests"
 )
-
-func validateSameRecipe(expected *models.Recipe, actual *models.Recipe, t *testing.T) {
-	if actual.Url != expected.Url {
-		t.Errorf("url mismatch: got %q, want %q", actual.Url, expected.Url)
-	}
-	if actual.Title != expected.Title {
-		t.Errorf("title mismatch: got %q, want %q", actual.Title, expected.Title)
-	}
-	if !reflect.DeepEqual(actual.Ingredients, expected.Ingredients) {
-		t.Errorf("ingredients mismatch: got %+v, want %+v", actual.Ingredients, expected.Ingredients)
-	}
-	if !reflect.DeepEqual(actual.Instructions, expected.Instructions) {
-		t.Errorf("Instructions mismatch: got %+v, want %+v", actual.Instructions, expected.Instructions)
-	}
-}
 
 func TestGetValidRecipe(t *testing.T) {
 	db := test_util.TestInit(t)
@@ -56,7 +40,9 @@ func TestGetValidRecipe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error thrown when getting result %s", err.Error())
 	}
-	validateSameRecipe(expected, actual, t)
+	if !expected.Equals(actual) {
+		t.Fatalf("Mismatch: got %+v, want %+v", actual, expected)
+	}
 }
 
 func TestGetInValidRecipe(t *testing.T) {
