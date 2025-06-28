@@ -20,14 +20,21 @@ func NewRecipeHandler(db *gorm.DB) *recipeHandler {
 	}
 }
 
-func (handler *recipeHandler) handleGet(w http.ResponseWriter, url string) {
-	fmt.Printf("The url is %s\n", url)
+func (handler *recipeHandler) getByUrl(url string) (*models.Recipe, error) {
 	recipe := &models.Recipe{
 		Url: url,
 	}
 	result := handler.db.First(recipe)
 	if result.Error != nil {
-		util.RespondWithError(w, http.StatusInternalServerError, result.Error.Error())
+		return nil, result.Error
+	}
+	return recipe, nil
+}
+
+func (handler *recipeHandler) handleGet(w http.ResponseWriter, url string) {
+	recipe, err := handler.getByUrl(url)
+	if err != nil {
+		util.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	util.RespondWithJSON(w, http.StatusAccepted, recipe)
@@ -39,6 +46,11 @@ func (handler *recipeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	fmt.Printf("Url is %s and length is %d and method is %s and split is %s\n", url, len(url_split), r.Method, url_split)
 	switch len(url_split) {
 	case 1:
+		request_url := url_split[0]
+		if !util.IsUrl(request_url) {
+			util.RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Url: %s is not a valid url", request_url))
+			return
+		}
 		switch r.Method {
 		case http.MethodGet:
 			handler.handleGet(w, url_split[0])
