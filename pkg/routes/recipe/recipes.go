@@ -1,9 +1,7 @@
 package recipe
 
 import (
-	"fmt"
 	"net/http"
-	"strings"
 
 	util "github.com/tade3910/recipe_server/pkg"
 	"github.com/tade3910/recipe_server/pkg/models"
@@ -20,7 +18,18 @@ func NewRecipesHandler(db *gorm.DB) *recipesHandler {
 	}
 }
 
-func (handler *recipesHandler) handlePost(w http.ResponseWriter, r *http.Request) {
+func (handler *recipesHandler) getByUrl(url string) (*models.Recipe, error) {
+	recipe := &models.Recipe{
+		Url: url,
+	}
+	result := handler.db.First(recipe)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return recipe, nil
+}
+
+func (handler *recipesHandler) PostRecipe(w http.ResponseWriter, r *http.Request) {
 	recipe := &models.Recipe{}
 	err := util.GetBody(r, recipe)
 	if err != nil {
@@ -34,7 +43,8 @@ func (handler *recipesHandler) handlePost(w http.ResponseWriter, r *http.Request
 	}
 }
 
-func (handler *recipesHandler) handleGet(w http.ResponseWriter) {
+func (handler *recipesHandler) getAllRecipes(w http.ResponseWriter) {
+	// TODO:Tokenization to not post all
 	var recipes []models.Recipe
 	result := handler.db.Find(&recipes)
 	if result.Error != nil {
@@ -44,16 +54,72 @@ func (handler *recipesHandler) handleGet(w http.ResponseWriter) {
 	util.RespondWithJSON(w, http.StatusAccepted, recipes)
 }
 
+func (handler *recipesHandler) getRecipe(w http.ResponseWriter, url string) {
+	recipe, err := handler.getByUrl(url)
+	if err != nil {
+		util.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	util.RespondWithJSON(w, http.StatusAccepted, recipe)
+}
+
+func (handler *recipesHandler) deleteRecipe(w http.ResponseWriter, url string) {
+	recipe, err := handler.getByUrl(url)
+	if err != nil {
+		util.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response := handler.db.Delete(recipe)
+	if response.Error != nil {
+		util.RespondWithError(w, http.StatusInternalServerError, response.Error.Error())
+		return
+	}
+	util.RespondWithJSON(w, http.StatusOK, "Deleted")
+}
+
+func (handler *recipesHandler) updateRecipe(w http.ResponseWriter, r *http.Request, url string) {
+	updateRecipe := &models.Recipe{}
+	err := util.GetBody(r, updateRecipe)
+	if err != nil {
+		util.RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	recipe, err := handler.getByUrl(url)
+	if err != nil {
+		util.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	updateRecipe.Url = recipe.Url
+	response := handler.db.Save(updateRecipe)
+	if response.Error != nil {
+		util.RespondWithError(w, http.StatusInternalServerError, response.Error.Error())
+		return
+	}
+	util.RespondWithJSON(w, http.StatusAccepted, updateRecipe)
+}
+
 func (handler *recipesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimSuffix(r.URL.Path, "/")
-	url_split := strings.Split(path, "/")
-	fmt.Printf("Url is %s and length is %d and method is %s\n", path, len(url_split), r.Method)
-	switch r.Method {
-	case http.MethodPost:
-		handler.handlePost(w, r)
-	case http.MethodGet:
-		handler.handleGet(w)
+	url := r.URL.Query().Get("url")
+	switch url {
+	case "":
+		switch r.Method {
+		case http.MethodPost:
+			handler.PostRecipe(w, r)
+		case http.MethodGet:
+			handler.getAllRecipes(w)
+		default:
+			util.RespondWithError(w, http.StatusMethodNotAllowed, "Invalid method")
+		}
 	default:
-		util.RespondWithError(w, http.StatusMethodNotAllowed, "Invalid method")
+		switch r.Method {
+		case http.MethodGet:
+			handler.getRecipe(w, url)
+		case http.MethodDelete:
+			handler.deleteRecipe(w, url)
+		case http.MethodPut:
+			handler.updateRecipe(w, r, url)
+		default:
+			util.RespondWithError(w, http.StatusMethodNotAllowed, "Invalid method")
+		}
 	}
 }

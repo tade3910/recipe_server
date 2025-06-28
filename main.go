@@ -14,7 +14,6 @@ func main() {
 	db := databse.Init()
 	router := http.NewServeMux()
 	router.Handle("/recipe", recipe.NewRecipesHandler(db))
-	router.Handle("/recipe/", recipe.NewRecipeHandler(db))
 	server := &http.Server{
 		Addr:    ":" + loadedEnvs.Port,
 		Handler: router,
