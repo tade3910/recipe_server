@@ -40,7 +40,7 @@ func (handler *recipeHandler) handleGet(w http.ResponseWriter, url string) {
 	util.RespondWithJSON(w, http.StatusAccepted, recipe)
 }
 
-func (handler *recipeHandler) hanldeDelete(w http.ResponseWriter, url string) {
+func (handler *recipeHandler) handleDelete(w http.ResponseWriter, url string) {
 	recipe, err := handler.getByUrl(url)
 	if err != nil {
 		util.RespondWithError(w, http.StatusInternalServerError, err.Error())
@@ -90,7 +90,7 @@ func (handler *recipeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		case http.MethodGet:
 			handler.handleGet(w, request_url)
 		case http.MethodDelete:
-			handler.hanldeDelete(w, request_url)
+			handler.handleDelete(w, request_url)
 		case http.MethodPut:
 			handler.handleUpdate(w, r, request_url)
 		default:
