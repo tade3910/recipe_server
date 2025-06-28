@@ -22,7 +22,10 @@ func NewRecipesHandler(db *gorm.DB) *recipesHandler {
 
 func (handler *recipesHandler) handlePost(w http.ResponseWriter, r *http.Request) {
 	recipe := &models.Recipe{}
-	util.GetBody(r, recipe)
+	err := util.GetBody(r, recipe)
+	if err != nil {
+		util.RespondWithError(w, http.StatusBadRequest, err.Error())
+	}
 	result := handler.db.Create(recipe)
 	if result.Error != nil {
 		util.RespondWithError(w, http.StatusInternalServerError, result.Error.Error())
