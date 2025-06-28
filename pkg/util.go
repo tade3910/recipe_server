@@ -29,9 +29,9 @@ func RespondWithError(w http.ResponseWriter, code int, msg string) error {
 	return RespondWithJSON(w, code, map[string]string{"error": msg})
 }
 
-func GetBody[T interface{}](r *http.Request, bodyStruct *T) error {
-	defer r.Body.Close()
-	body, err := io.ReadAll(r.Body)
+func GetBody[T any](Body io.ReadCloser, bodyStruct *T) error {
+	defer Body.Close()
+	body, err := io.ReadAll(Body)
 	if err != nil {
 		return fmt.Errorf("could not read body")
 	}

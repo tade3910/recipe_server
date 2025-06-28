@@ -31,7 +31,7 @@ func (handler *recipesHandler) getByUrl(url string) (*models.Recipe, error) {
 
 func (handler *recipesHandler) PostRecipe(w http.ResponseWriter, r *http.Request) {
 	recipe := &models.Recipe{}
-	err := util.GetBody(r, recipe)
+	err := util.GetBody(r.Body, recipe)
 	if err != nil {
 		util.RespondWithError(w, http.StatusBadRequest, err.Error())
 	}
@@ -57,7 +57,7 @@ func (handler *recipesHandler) getAllRecipes(w http.ResponseWriter) {
 func (handler *recipesHandler) getRecipe(w http.ResponseWriter, url string) {
 	recipe, err := handler.getByUrl(url)
 	if err != nil {
-		util.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		util.RespondWithError(w, http.StatusNotFound, err.Error())
 		return
 	}
 	util.RespondWithJSON(w, http.StatusAccepted, recipe)
@@ -66,7 +66,7 @@ func (handler *recipesHandler) getRecipe(w http.ResponseWriter, url string) {
 func (handler *recipesHandler) deleteRecipe(w http.ResponseWriter, url string) {
 	recipe, err := handler.getByUrl(url)
 	if err != nil {
-		util.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		util.RespondWithError(w, http.StatusNotFound, err.Error())
 		return
 	}
 	response := handler.db.Delete(recipe)
@@ -79,14 +79,14 @@ func (handler *recipesHandler) deleteRecipe(w http.ResponseWriter, url string) {
 
 func (handler *recipesHandler) updateRecipe(w http.ResponseWriter, r *http.Request, url string) {
 	updateRecipe := &models.Recipe{}
-	err := util.GetBody(r, updateRecipe)
+	err := util.GetBody(r.Body, updateRecipe)
 	if err != nil {
 		util.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	recipe, err := handler.getByUrl(url)
 	if err != nil {
-		util.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		util.RespondWithError(w, http.StatusNotFound, err.Error())
 		return
 	}
 	updateRecipe.Url = recipe.Url

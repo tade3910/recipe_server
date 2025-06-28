@@ -6,7 +6,7 @@ import (
 
 	util "github.com/tade3910/recipe_server/pkg"
 	"github.com/tade3910/recipe_server/pkg/databse"
-	"github.com/tade3910/recipe_server/pkg/routes/recipe"
+	recipe "github.com/tade3910/recipe_server/pkg/routes"
 )
 
 func main() {
