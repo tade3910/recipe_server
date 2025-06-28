@@ -69,13 +69,7 @@ func TestGetInValidRecipe(t *testing.T) {
 
 	handler.ServeHTTP(w, req)
 
-	if w.Code != http.StatusAccepted {
-		t.Fatalf("expected 202, got %d", w.Code)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", w.Code)
 	}
-	actual := &models.Recipe{}
-	err := util.GetBody(w.Result().Body, actual)
-	if err != nil {
-		t.Fatalf("Unexpected error thrown when getting result %s", err.Error())
-	}
-	validateSameRecipe(expected, actual, t)
 }
