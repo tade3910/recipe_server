@@ -1,4 +1,4 @@
-package recipe
+package recipe_test
 
 import (
 	"net/http"
