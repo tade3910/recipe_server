@@ -32,8 +32,17 @@ func (handler *recipesHandler) getByUrl(url string) (*models.Recipe, error) {
 func (handler *recipesHandler) PostRecipe(w http.ResponseWriter, r *http.Request) {
 	recipe := &models.Recipe{}
 	err := util.GetBody(r.Body, recipe)
+	if err == nil {
+		err = recipe.HasRecipeError()
+	}
 	if err != nil {
 		util.RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	duplicate_recipe, _ := handler.getByUrl(recipe.Url)
+	if duplicate_recipe != nil {
+		util.RespondWithError(w, http.StatusConflict, "Duplicate recipe")
+		return
 	}
 	result := handler.db.Create(recipe)
 	if result.Error != nil {
