@@ -1,7 +1,9 @@
 package models
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 )
 
 type Recipe struct {
@@ -25,4 +27,25 @@ func (actual *Recipe) Equals(other *Recipe) bool {
 		return false
 	}
 	return true
+}
+
+func (actual *Recipe) HasRecipeError() error {
+	errors := []string{}
+	if actual.Url == "" {
+		errors = append(errors, "url")
+	}
+	if actual.Title == "" {
+		errors = append(errors, "title")
+	}
+	if len(actual.Ingredients) == 0 {
+		errors = append(errors, "ingredients")
+	}
+	if len(actual.Instructions) == 0 {
+		errors = append(errors, "instructions")
+	}
+	if len(errors) != 0 {
+		return fmt.Errorf("following required keys are empty: %s", strings.Join(errors, ","))
+
+	}
+	return nil
 }
