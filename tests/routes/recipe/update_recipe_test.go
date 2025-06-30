@@ -3,6 +3,7 @@ package recipe_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,88 +14,75 @@ import (
 	test_util "github.com/tade3910/recipe_server/tests"
 )
 
-func TestPostOneRecipe(t *testing.T) {
+func TestUpdateValidRecipe(t *testing.T) {
 	db := test_util.TestInit(t)
 	defer test_util.DeleteRecipes(db)
-
-	expected := &models.Recipe{
+	// Seed the database
+	toUpdate := &models.Recipe{
 		Url:          "https://example.com",
 		Title:        "Test Pancakes",
 		Ingredients:  []string{"flour", "milk", "egg"},
 		Instructions: []string{"mix ingredients", "cook on pan"},
 	}
+	db.Create(toUpdate)
+
+	expected := &models.Recipe{
+		Url:          toUpdate.Url,
+		Title:        "Updated Pancakes",
+		Ingredients:  toUpdate.Ingredients,
+		Instructions: toUpdate.Instructions,
+	}
 	body, err := json.Marshal(expected)
 	if err != nil {
 		t.Fatalf("Failed to marshall body with err %s", err.Error())
 	}
-
+	//Execute request
 	handler := recipe.NewRecipesHandler(db)
-	target := "/recipe"
-	req := httptest.NewRequest(http.MethodPost, target, bytes.NewReader(body))
+	target := fmt.Sprintf("/recipe?url=%s", toUpdate.Url)
+	req := httptest.NewRequest(http.MethodPut, target, bytes.NewReader(body))
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
 
-	if w.Code != http.StatusCreated {
-		t.Fatalf("expected 201, got %d", w.Code)
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("expected %d, got %d", http.StatusAccepted, w.Code)
 	}
 	actual := &models.Recipe{}
 	err = util.GetBody(w.Result().Body, actual)
 	if err != nil {
 		t.Fatalf("Unexpected error thrown when getting result %s", err.Error())
 	}
+
 	if !expected.Equals(actual) {
 		t.Fatalf("Mismatch: got %+v, want %+v", actual, expected)
 	}
 }
 
-func TestPostDuplicateRecipe(t *testing.T) {
+func TestUpdateValidRecipeWithInvalidRecipe(t *testing.T) {
 	db := test_util.TestInit(t)
 	defer test_util.DeleteRecipes(db)
-
-	duplicate := &models.Recipe{
+	// Seed the database
+	toUpdate := &models.Recipe{
 		Url:          "https://example.com",
 		Title:        "Test Pancakes",
 		Ingredients:  []string{"flour", "milk", "egg"},
 		Instructions: []string{"mix ingredients", "cook on pan"},
 	}
-	db.Create(duplicate)
+	db.Create(toUpdate)
 
-	body, err := json.Marshal(duplicate)
+	invalid := &models.Recipe{
+		Url:          toUpdate.Url,
+		Ingredients:  toUpdate.Ingredients,
+		Instructions: toUpdate.Instructions,
+	}
+	body, err := json.Marshal(invalid)
 	if err != nil {
 		t.Fatalf("Failed to marshall body with err %s", err.Error())
 	}
-
+	//Execute request
 	handler := recipe.NewRecipesHandler(db)
-	target := "/recipe"
-	req := httptest.NewRequest(http.MethodPost, target, bytes.NewReader(body))
-	w := httptest.NewRecorder()
-
-	handler.ServeHTTP(w, req)
-
-	if w.Code != http.StatusConflict {
-		t.Fatalf("expected %d, got %d", http.StatusConflict, w.Code)
-	}
-	var actual map[string]string = make(map[string]string)
-	err = util.GetBody(w.Result().Body, &actual)
-	if err != nil {
-		t.Fatalf("Unexpected error thrown when getting result %s", err.Error())
-	}
-	expected := "Duplicate recipe"
-	if actual["error"] != expected {
-		t.Fatalf("Mismatch: got %s, want %s", actual, expected)
-	}
-}
-
-func TestPostInvalidRecipe(t *testing.T) {
-	db := test_util.TestInit(t)
-	defer test_util.DeleteRecipes(db)
-
-	body := []byte(`{"url":"https://example.com","titles":"Spaghetti"}`)
-
-	handler := recipe.NewRecipesHandler(db)
-	target := "/recipe"
-	req := httptest.NewRequest(http.MethodPost, target, bytes.NewReader(body))
+	target := fmt.Sprintf("/recipe?url=%s", toUpdate.Url)
+	req := httptest.NewRequest(http.MethodPut, target, bytes.NewReader(body))
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -103,23 +91,47 @@ func TestPostInvalidRecipe(t *testing.T) {
 		t.Fatalf("expected %d, got %d", http.StatusBadRequest, w.Code)
 	}
 	var actual map[string]string = make(map[string]string)
-	err := util.GetBody(w.Result().Body, &actual)
+	err = util.GetBody(w.Result().Body, &actual)
 	if err != nil {
 		t.Fatalf("Unexpected error thrown when getting result %s", err.Error())
 	}
-	expected := "following required keys are empty: title,ingredients,instructions"
+	expected := "following required keys are empty: title"
 	if expected != actual["error"] {
 		t.Fatalf("Mismatch: got %s, want %s", actual["error"], expected)
 	}
 }
 
-func TestPostEmptyBody(t *testing.T) {
+func TestUpdateNotFoundRecipe(t *testing.T) {
 	db := test_util.TestInit(t)
 	defer test_util.DeleteRecipes(db)
-
 	handler := recipe.NewRecipesHandler(db)
-	target := "/recipe"
-	req := httptest.NewRequest(http.MethodPost, target, nil)
+	target := fmt.Sprintf("/recipe?url=%s", "unknown")
+	req := httptest.NewRequest(http.MethodDelete, target, nil)
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected %d, got %d", http.StatusNotFound, w.Code)
+	}
+}
+
+func TestUpdateEmptyBody(t *testing.T) {
+	db := test_util.TestInit(t)
+	defer test_util.DeleteRecipes(db)
+	// Seed the database
+	toUpdate := &models.Recipe{
+		Url:          "https://example.com",
+		Title:        "Test Pancakes",
+		Ingredients:  []string{"flour", "milk", "egg"},
+		Instructions: []string{"mix ingredients", "cook on pan"},
+	}
+	db.Create(toUpdate)
+
+	//Execute request
+	handler := recipe.NewRecipesHandler(db)
+	target := fmt.Sprintf("/recipe?url=%s", toUpdate.Url)
+	req := httptest.NewRequest(http.MethodPut, target, nil)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
