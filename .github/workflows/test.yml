@@ -1,0 +1,46 @@
+name: Go Test Workflow
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:        # Allow manual trigger from GitHub UI
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: TiseTheCat
+          POSTGRES_PASSWORD: FoodLover
+          POSTGRES_DB: RECIPE_TEST
+        options: >-
+          --health-cmd "pg_isready -U TiseTheCat" 
+          --health-interval 10s 
+          --health-timeout 5s 
+          --health-retries 5
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Set environment variables
+        run: |
+          echo "TEST_DATABASE_DSN=postgres://TiseTheCat:FoodLover@localhost:5432/RECIPE_TEST?sslmode=disable" >> $GITHUB_ENV
+
+      - name: Install dependencies
+        run: go mod tidy
+
+      - name: Run tests
+        run: go test ./...
