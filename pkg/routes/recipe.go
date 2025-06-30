@@ -89,6 +89,9 @@ func (handler *recipesHandler) deleteRecipe(w http.ResponseWriter, url string) {
 func (handler *recipesHandler) updateRecipe(w http.ResponseWriter, r *http.Request, url string) {
 	updateRecipe := &models.Recipe{}
 	err := util.GetBody(r.Body, updateRecipe)
+	if err == nil {
+		err = updateRecipe.HasRecipeError()
+	}
 	if err != nil {
 		util.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
