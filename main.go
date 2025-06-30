@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	util "github.com/tade3910/recipe_server/pkg"
@@ -11,6 +12,11 @@ import (
 
 func main() {
 	loadedEnvs := util.LoadEnvs()
+	if loadedEnvs.Port == "" {
+		log.Fatal("Could not read port from .env file")
+	} else if loadedEnvs.DbUrl == "" {
+		log.Fatal("Could not read dbUrl from .env file")
+	}
 	db := databse.Init()
 	router := http.NewServeMux()
 	router.Handle("/recipe", recipe.NewRecipesHandler(db))

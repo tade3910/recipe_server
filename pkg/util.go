@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -61,12 +60,6 @@ func LoadEnvs() *envs {
 	port := os.Getenv("PORT")
 	dbUrl := os.Getenv("DATABASE_URL")
 	testUrl := os.Getenv("TEST_DATABASE_DSN")
-	if port == "" {
-		log.Fatal("Could not read port from .env file")
-	}
-	if dbUrl == "" {
-		log.Fatal("Could not read dbUrl from .env file")
-	}
 	return &envs{
 		Port:    port,
 		DbUrl:   dbUrl,
