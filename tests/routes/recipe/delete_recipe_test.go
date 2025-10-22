@@ -10,10 +10,12 @@ import (
 	"github.com/tade3910/recipe_server/pkg/models"
 	recipe "github.com/tade3910/recipe_server/pkg/routes"
 	test_util "github.com/tade3910/recipe_server/tests"
+	"github.com/tade3910/recipe_server/tests/mocks"
 )
 
 func TestDeleteValidRecipe(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
 	// Seed the database
 	toDelete := &models.Recipe{
@@ -25,7 +27,7 @@ func TestDeleteValidRecipe(t *testing.T) {
 	db.Create(toDelete)
 
 	//Execute request
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := fmt.Sprintf("/recipe?url=%s", toDelete.Url)
 	req := httptest.NewRequest(http.MethodDelete, target, nil)
 	w := httptest.NewRecorder()
@@ -47,9 +49,10 @@ func TestDeleteValidRecipe(t *testing.T) {
 }
 
 func TestDeleteNotFounddRecipe(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := fmt.Sprintf("/recipe?url=%s", "unknown")
 	req := httptest.NewRequest(http.MethodDelete, target, nil)
 	w := httptest.NewRecorder()

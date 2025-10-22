@@ -9,12 +9,14 @@ import (
 	"github.com/tade3910/recipe_server/pkg/models"
 	recipe "github.com/tade3910/recipe_server/pkg/routes"
 	test_util "github.com/tade3910/recipe_server/tests"
+	"github.com/tade3910/recipe_server/tests/mocks"
 )
 
 func TestGetNoRecipes(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := "/recipe"
 	req := httptest.NewRequest(http.MethodGet, target, nil)
 	w := httptest.NewRecorder()
@@ -50,9 +52,10 @@ func validateSameRecipes(expected []models.Recipe, actual []models.Recipe, t *te
 }
 
 func TestGetOneRecipe(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := "/recipe"
 	req := httptest.NewRequest(http.MethodGet, target, nil)
 	w := httptest.NewRecorder()
@@ -80,9 +83,10 @@ func TestGetOneRecipe(t *testing.T) {
 }
 
 func TestGetManyRecipes(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := "/recipe"
 	req := httptest.NewRequest(http.MethodGet, target, nil)
 	w := httptest.NewRecorder()

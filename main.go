@@ -8,6 +8,7 @@ import (
 	util "github.com/tade3910/recipe_server/pkg"
 	"github.com/tade3910/recipe_server/pkg/databse"
 	recipe "github.com/tade3910/recipe_server/pkg/routes"
+	"github.com/tade3910/recipe_server/pkg/services"
 )
 
 func main() {
@@ -19,7 +20,7 @@ func main() {
 	}
 	db := databse.Init()
 	router := http.NewServeMux()
-	router.Handle("/recipe", recipe.NewRecipesHandler(db))
+	router.Handle("/recipe", recipe.NewRecipesHandler(db, &services.RecipeScraper{}))
 	server := &http.Server{
 		Addr:    ":" + loadedEnvs.Port,
 		Handler: router,

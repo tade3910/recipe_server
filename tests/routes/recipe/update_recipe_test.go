@@ -12,10 +12,12 @@ import (
 	"github.com/tade3910/recipe_server/pkg/models"
 	recipe "github.com/tade3910/recipe_server/pkg/routes"
 	test_util "github.com/tade3910/recipe_server/tests"
+	"github.com/tade3910/recipe_server/tests/mocks"
 )
 
 func TestUpdateValidRecipe(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
 	// Seed the database
 	toUpdate := &models.Recipe{
@@ -37,7 +39,7 @@ func TestUpdateValidRecipe(t *testing.T) {
 		t.Fatalf("Failed to marshall body with err %s", err.Error())
 	}
 	//Execute request
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := fmt.Sprintf("/recipe?url=%s", toUpdate.Url)
 	req := httptest.NewRequest(http.MethodPut, target, bytes.NewReader(body))
 	w := httptest.NewRecorder()
@@ -59,7 +61,8 @@ func TestUpdateValidRecipe(t *testing.T) {
 }
 
 func TestUpdateValidRecipeWithInvalidRecipe(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
 	// Seed the database
 	toUpdate := &models.Recipe{
@@ -80,7 +83,7 @@ func TestUpdateValidRecipeWithInvalidRecipe(t *testing.T) {
 		t.Fatalf("Failed to marshall body with err %s", err.Error())
 	}
 	//Execute request
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := fmt.Sprintf("/recipe?url=%s", toUpdate.Url)
 	req := httptest.NewRequest(http.MethodPut, target, bytes.NewReader(body))
 	w := httptest.NewRecorder()
@@ -102,9 +105,10 @@ func TestUpdateValidRecipeWithInvalidRecipe(t *testing.T) {
 }
 
 func TestUpdateNotFoundRecipe(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := fmt.Sprintf("/recipe?url=%s", "unknown")
 	req := httptest.NewRequest(http.MethodDelete, target, nil)
 	w := httptest.NewRecorder()
@@ -117,7 +121,8 @@ func TestUpdateNotFoundRecipe(t *testing.T) {
 }
 
 func TestUpdateEmptyBody(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
 	// Seed the database
 	toUpdate := &models.Recipe{
@@ -129,7 +134,7 @@ func TestUpdateEmptyBody(t *testing.T) {
 	db.Create(toUpdate)
 
 	//Execute request
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := fmt.Sprintf("/recipe?url=%s", toUpdate.Url)
 	req := httptest.NewRequest(http.MethodPut, target, nil)
 	w := httptest.NewRecorder()

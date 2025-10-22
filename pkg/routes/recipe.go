@@ -1,20 +1,23 @@
-package recipe
+package routes
 
 import (
 	"net/http"
 
 	util "github.com/tade3910/recipe_server/pkg"
 	"github.com/tade3910/recipe_server/pkg/models"
+	"github.com/tade3910/recipe_server/pkg/services"
 	"gorm.io/gorm"
 )
 
 type recipesHandler struct {
-	db *gorm.DB
+	db      *gorm.DB
+	scraper services.RecipeScraperInterface
 }
 
-func NewRecipesHandler(db *gorm.DB) *recipesHandler {
+func NewRecipesHandler(db *gorm.DB, scraper services.RecipeScraperInterface) *recipesHandler {
 	return &recipesHandler{
-		db: db,
+		db:      db,
+		scraper: scraper,
 	}
 }
 
@@ -110,6 +113,19 @@ func (handler *recipesHandler) updateRecipe(w http.ResponseWriter, r *http.Reque
 	util.RespondWithJSON(w, http.StatusAccepted, updateRecipe)
 }
 
+func (handler *recipesHandler) parseRecipe(w http.ResponseWriter, url string) {
+	allIngredients, allInstructions, err := handler.scraper.ScrapeRecipe(url)
+	if err != nil {
+		util.RespondWithError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	response := &map[string][][]string{
+		"ingredients":  allIngredients,
+		"instructions": allInstructions,
+	}
+	util.RespondWithJSON(w, http.StatusCreated, response)
+}
+
 func (handler *recipesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.Query().Get("url")
 	switch url {
@@ -124,6 +140,8 @@ func (handler *recipesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		}
 	default:
 		switch r.Method {
+		case http.MethodPost:
+			handler.parseRecipe(w, url)
 		case http.MethodGet:
 			handler.getRecipe(w, url)
 		case http.MethodDelete:

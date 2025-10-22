@@ -10,10 +10,12 @@ import (
 	"github.com/tade3910/recipe_server/pkg/models"
 	recipe "github.com/tade3910/recipe_server/pkg/routes"
 	test_util "github.com/tade3910/recipe_server/tests"
+	"github.com/tade3910/recipe_server/tests/mocks"
 )
 
 func TestGetValidRecipe(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
 	// Seed the database
 	expected := &models.Recipe{
@@ -25,7 +27,7 @@ func TestGetValidRecipe(t *testing.T) {
 	db.Create(expected)
 
 	//Execute request
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := fmt.Sprintf("/recipe?url=%s", expected.Url)
 	req := httptest.NewRequest(http.MethodGet, target, nil)
 	w := httptest.NewRecorder()
@@ -46,9 +48,10 @@ func TestGetValidRecipe(t *testing.T) {
 }
 
 func TestGetInValidRecipe(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := "/recipe?url=https://example.com"
 	req := httptest.NewRequest(http.MethodGet, target, nil)
 	w := httptest.NewRecorder()

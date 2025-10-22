@@ -8,14 +8,16 @@ import (
 
 	recipe "github.com/tade3910/recipe_server/pkg/routes"
 	test_util "github.com/tade3910/recipe_server/tests"
+	"github.com/tade3910/recipe_server/tests/mocks"
 )
 
 const EXPECTED_STATUS = http.StatusMethodNotAllowed
 
 func TestUpdateNoUrl(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := "/recipe"
 	req := httptest.NewRequest(http.MethodPut, target, nil)
 	w := httptest.NewRecorder()
@@ -28,9 +30,10 @@ func TestUpdateNoUrl(t *testing.T) {
 }
 
 func TestDeleteNoUrl(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := "/recipe"
 	req := httptest.NewRequest(http.MethodDelete, target, nil)
 	w := httptest.NewRecorder()
@@ -42,25 +45,11 @@ func TestDeleteNoUrl(t *testing.T) {
 	}
 }
 
-func TestPostUrl(t *testing.T) {
-	db := test_util.TestInit(t)
-	defer test_util.DeleteRecipes(db)
-	handler := recipe.NewRecipesHandler(db)
-	target := fmt.Sprintf("/recipe?url=%s", "invalid")
-	req := httptest.NewRequest(http.MethodPost, target, nil)
-	w := httptest.NewRecorder()
-
-	handler.ServeHTTP(w, req)
-
-	if w.Code != EXPECTED_STATUS {
-		t.Fatalf("expected %d, got %d", EXPECTED_STATUS, w.Code)
-	}
-}
-
 func TestInvalidQueryUpdate(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := fmt.Sprintf("/recipe?query=%s", "invalid")
 	req := httptest.NewRequest(http.MethodPut, target, nil)
 	w := httptest.NewRecorder()
@@ -73,9 +62,10 @@ func TestInvalidQueryUpdate(t *testing.T) {
 }
 
 func TestInvalidQueryDelete(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := fmt.Sprintf("/recipe?query=%s", "invalid")
 	req := httptest.NewRequest(http.MethodDelete, target, nil)
 	w := httptest.NewRecorder()

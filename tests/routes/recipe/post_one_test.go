@@ -11,10 +11,12 @@ import (
 	"github.com/tade3910/recipe_server/pkg/models"
 	recipe "github.com/tade3910/recipe_server/pkg/routes"
 	test_util "github.com/tade3910/recipe_server/tests"
+	"github.com/tade3910/recipe_server/tests/mocks"
 )
 
 func TestPostOneRecipe(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
 
 	expected := &models.Recipe{
@@ -28,7 +30,7 @@ func TestPostOneRecipe(t *testing.T) {
 		t.Fatalf("Failed to marshall body with err %s", err.Error())
 	}
 
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := "/recipe"
 	req := httptest.NewRequest(http.MethodPost, target, bytes.NewReader(body))
 	w := httptest.NewRecorder()
@@ -49,7 +51,8 @@ func TestPostOneRecipe(t *testing.T) {
 }
 
 func TestPostDuplicateRecipe(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
 
 	duplicate := &models.Recipe{
@@ -65,7 +68,7 @@ func TestPostDuplicateRecipe(t *testing.T) {
 		t.Fatalf("Failed to marshall body with err %s", err.Error())
 	}
 
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := "/recipe"
 	req := httptest.NewRequest(http.MethodPost, target, bytes.NewReader(body))
 	w := httptest.NewRecorder()
@@ -87,12 +90,13 @@ func TestPostDuplicateRecipe(t *testing.T) {
 }
 
 func TestPostInvalidRecipe(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
 
 	body := []byte(`{"url":"https://example.com","titles":"Spaghetti"}`)
 
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := "/recipe"
 	req := httptest.NewRequest(http.MethodPost, target, bytes.NewReader(body))
 	w := httptest.NewRecorder()
@@ -114,10 +118,11 @@ func TestPostInvalidRecipe(t *testing.T) {
 }
 
 func TestPostEmptyBody(t *testing.T) {
-	db := test_util.TestInit(t)
+	db := mocks.TestDb(t)
+	scraper := &mocks.MockRecipeScraper{}
 	defer test_util.DeleteRecipes(db)
 
-	handler := recipe.NewRecipesHandler(db)
+	handler := recipe.NewRecipesHandler(db, scraper)
 	target := "/recipe"
 	req := httptest.NewRequest(http.MethodPost, target, nil)
 	w := httptest.NewRecorder()
