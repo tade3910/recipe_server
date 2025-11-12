@@ -24,6 +24,7 @@ func Init() *gorm.DB {
 	}
 
 	db.AutoMigrate(&models.Recipe{})
+	db.AutoMigrate(&models.User{})
 
 	return db
 }

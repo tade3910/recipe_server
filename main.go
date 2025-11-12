@@ -6,8 +6,10 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/cors"
 
 	util "github.com/tade3910/recipe_server/pkg"
+	middleware "github.com/tade3910/recipe_server/pkg/MiddleWare"
 	"github.com/tade3910/recipe_server/pkg/databse"
 	"github.com/tade3910/recipe_server/pkg/routes"
 	"github.com/tade3910/recipe_server/pkg/services"
@@ -24,9 +26,17 @@ func main() {
 
 	db := databse.Init()
 	r := chi.NewRouter()
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   loadedEnvs.AllowedOrigins,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+		AllowCredentials: true,
+		MaxAge:           300, // 5 minutes
+	}))
 
 	recipeHandler := routes.NewRecipeHandler(db)
 	r.Route("/recipe", func(r chi.Router) {
+		r.Use(middleware.AuthMiddleware)
 		r.Post("/", recipeHandler.CreateRecipe)       // e.g. POST /recipe
 		r.Get("/{id}", recipeHandler.GetRecipe)       // e.g. GET /recipe/123
 		r.Put("/{id}", recipeHandler.UpdateRecipe)    // e.g. PUT /recipe/123
@@ -35,11 +45,13 @@ func main() {
 
 	recipesHandler := routes.NewRecipesHandler(db)
 	r.Route("/recipes", func(r chi.Router) {
-		r.Get("/{id}", recipesHandler.GetRecipes) // e.g. GET /recipe/123?page=1&limit=10
+		r.Use(middleware.AuthMiddleware)
+		r.Get("", recipesHandler.GetRecipes) // e.g. GET /recipe/123?page=1&limit=10
 	})
 
 	scraperHandler := routes.NewscraperHandler(db, &services.RecipeScraper{})
 	r.Route("/scrape", func(r chi.Router) {
+		r.Use(middleware.AuthMiddleware)
 		r.Post("/", scraperHandler.ParseRecipe)
 	})
 

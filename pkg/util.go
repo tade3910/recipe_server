@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -49,9 +50,10 @@ func GetBody[T any](Body io.ReadCloser, bodyStruct *T) error {
 }
 
 type envs struct {
-	Port    string
-	DbUrl   string
-	TestUrl string
+	Port           string
+	DbUrl          string
+	TestUrl        string
+	AllowedOrigins []string
 }
 
 var loadedEnv *envs
@@ -67,10 +69,12 @@ func LoadEnvs() *envs {
 	port := os.Getenv("PORT")
 	dbUrl := os.Getenv("DATABASE_URL")
 	testUrl := os.Getenv("TEST_DATABASE_DSN")
+	allowedOrigins := strings.Split(os.Getenv("FRONTEND_URLS"), ",")
 	return &envs{
-		Port:    port,
-		DbUrl:   dbUrl,
-		TestUrl: testUrl,
+		Port:           port,
+		DbUrl:          dbUrl,
+		TestUrl:        testUrl,
+		AllowedOrigins: allowedOrigins,
 	}
 }
 
