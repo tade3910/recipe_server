@@ -12,7 +12,9 @@ type Recipe struct {
 	Title        string     `json:"title" gorm:"not null;check:title <> '';comment:Recipe title must not be empty"`
 	Ingredients  StringList `json:"ingredients" gorm:"type:jsonb;not null;check:json_array_length(ingredients) > 0;comment:Must have at least one ingredient"`
 	Instructions StringList `json:"instructions" gorm:"type:jsonb;not null;check:json_array_length(instructions) > 0;comment:Must have at least one instruction"`
-	Owner        string     `json:"owner" gorm:"not null;index:idx_owner_url,unique;comment:Owner of the recipe (used for uniqueness constraint with URL)"`
+
+	OwnerEmail string `json:"owner" gorm:"not null;index:idx_owner_url,unique;comment:Owner of the recipe (references User)"`
+	Owner      User   `gorm:"foreignKey:OwnerEmail;references:Email;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 }
 
 func (actual *Recipe) Equals(other *Recipe) bool {
@@ -31,7 +33,7 @@ func (actual *Recipe) Equals(other *Recipe) bool {
 	if !reflect.DeepEqual(actual.Instructions, other.Instructions) {
 		return false
 	}
-	if actual.Owner != other.Owner {
+	if actual.OwnerEmail != other.OwnerEmail {
 		return false
 	}
 	return true
@@ -51,8 +53,8 @@ func (actual *Recipe) HasRecipeError() error {
 	if len(actual.Instructions) == 0 {
 		errors = append(errors, "instructions")
 	}
-	if strings.TrimSpace(actual.Owner) == "" {
-		errors = append(errors, "owner")
+	if strings.TrimSpace(actual.OwnerEmail) == "" {
+		errors = append(errors, "ownerEmail")
 	}
 	if len(errors) != 0 {
 		return fmt.Errorf("following required keys are empty: %s", strings.Join(errors, ","))

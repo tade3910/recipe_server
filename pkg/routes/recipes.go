@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	util "github.com/tade3910/recipe_server/pkg"
-	middleware "github.com/tade3910/recipe_server/pkg/MiddleWare"
 	"github.com/tade3910/recipe_server/pkg/models"
 	"gorm.io/gorm"
 )
@@ -23,7 +22,7 @@ func NewRecipesHandler(db *gorm.DB) *recipesHandler {
 func (handler *recipesHandler) GetRecipes(w http.ResponseWriter, r *http.Request) {
 	pageStr := r.URL.Query().Get("page")
 	limitStr := r.URL.Query().Get("limit")
-	id := r.Context().Value(middleware.UserIDKey).(string)
+	id := r.Context().Value(util.UserIDKey).(string)
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page < 1 {

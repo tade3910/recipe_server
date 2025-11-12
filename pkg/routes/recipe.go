@@ -31,10 +31,10 @@ func (handler *recipeHandler) getById(id string) (*models.Recipe, error) {
 }
 
 // Returns recipe if owner has recipe with matching url
-func (handler *recipeHandler) createdRecipe(owner string, url string) *models.Recipe {
+func (handler *recipeHandler) createdRecipe(owner_email string, url string) *models.Recipe {
 	recipe := &models.Recipe{
-		Url:   url,
-		Owner: owner,
+		Url:        url,
+		OwnerEmail: owner_email,
 	}
 	result := handler.db.First(recipe)
 	if result.Error != nil {
@@ -53,7 +53,7 @@ func (handler *recipeHandler) CreateRecipe(w http.ResponseWriter, r *http.Reques
 		util.RespondWithError(w, http.StatusBadRequest, err)
 		return
 	}
-	duplicate_recipe := handler.createdRecipe(recipe.Owner, recipe.Url)
+	duplicate_recipe := handler.createdRecipe(recipe.OwnerEmail, recipe.Url)
 	if duplicate_recipe != nil {
 		util.RespondWithError(w, http.StatusConflict, duplicate_recipe)
 		return

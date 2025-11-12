@@ -1,6 +1,8 @@
 package util
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -83,3 +85,23 @@ func IsUrl(str string) bool {
 	// return err == nil && u.Scheme != "" && u.Host != ""
 	return true
 }
+
+func GenerateRandomToken(length int) string {
+	if length <= 0 {
+		length = 32 // default length
+	}
+
+	bytes := make([]byte, length)
+	_, err := rand.Read(bytes)
+	if err != nil {
+		// fallback in case crypto/rand fails (very unlikely)
+		panic(fmt.Sprintf("failed to generate random token: %v", err))
+	}
+
+	return hex.EncodeToString(bytes)
+}
+
+type contextKey string
+
+// Package-level constant
+const UserIDKey contextKey = "userID"
