@@ -12,7 +12,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func RespondWithJSON(w http.ResponseWriter, code int, payload interface{}) error {
+func RespondWithJSON(w http.ResponseWriter, code int, payload any) error {
 	response, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -24,8 +24,15 @@ func RespondWithJSON(w http.ResponseWriter, code int, payload interface{}) error
 	return nil
 }
 
-func RespondWithError(w http.ResponseWriter, code int, msg string) error {
-	return RespondWithJSON(w, code, map[string]string{"error": msg})
+func RespondWithError(w http.ResponseWriter, code int, payload any) error {
+	switch v := payload.(type) {
+	case string:
+		return RespondWithJSON(w, code, map[string]string{"error": v})
+	case error:
+		return RespondWithJSON(w, code, map[string]string{"error": v.Error()})
+	default:
+		return RespondWithJSON(w, code, payload)
+	}
 }
 
 func GetBody[T any](Body io.ReadCloser, bodyStruct *T) error {
