@@ -37,6 +37,7 @@ func main() {
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/signup", auth_handler.SignUp)
 		r.Post("/signin", auth_handler.SignIn)
+		r.Post("/refresh", auth_handler.SignIn)
 		r.Group(func(r chi.Router) {
 			r.Use(auth_handler.AuthMiddleware)
 			r.Post("/logout", auth_handler.Logout)

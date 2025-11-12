@@ -2,7 +2,6 @@ package routes
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -17,40 +16,47 @@ type authHandler struct {
 }
 
 func NewAuthHandler(db *gorm.DB) *authHandler {
-	return &authHandler{
-		db: db,
-	}
+	return &authHandler{db: db}
 }
 
+type authPayload struct {
+	Email    string
+	Password string
+}
+
+// SignUp registers a new user
 func (h *authHandler) SignUp(w http.ResponseWriter, r *http.Request) {
-	var payload struct {
-		Email    string
-		Password string
+	payload := &authPayload{}
+	err := util.GetBody(r.Body, payload)
+	if err != nil {
+		util.RespondWithError(w, http.StatusBadRequest, "Invalid payload")
+		return
 	}
-	_ = json.NewDecoder(r.Body).Decode(&payload)
 
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
 	user := models.User{Email: payload.Email, Password: string(hashedPassword)}
 	if err := h.db.Create(&user).Error; err != nil {
-		util.RespondWithError(w, http.StatusBadRequest, err)
+		util.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
 	util.RespondWithJSON(w, http.StatusCreated, map[string]string{
 		"email": user.Email,
-		"name":  user.Name})
+		"name":  user.Name,
+	})
 }
 
+// SignIn generates access + refresh tokens
 func (h *authHandler) SignIn(w http.ResponseWriter, r *http.Request) {
-	var payload struct {
-		Email    string
-		Password string
+	payload := &authPayload{}
+	err := util.GetBody(r.Body, payload)
+	if err != nil {
+		util.RespondWithError(w, http.StatusBadRequest, "Invalid payload")
+		return
 	}
-	_ = json.NewDecoder(r.Body).Decode(&payload)
 
-	user := &models.User{
-		Email: payload.Email,
-	}
-	if err := h.db.First(user).Error; err != nil {
+	user := &models.User{}
+	if err := h.db.First(user, "email = ?", payload.Email).Error; err != nil {
 		util.RespondWithError(w, http.StatusUnauthorized, "Invalid credentials")
 		return
 	}
@@ -60,12 +66,72 @@ func (h *authHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate token (random string or JWT)
-	token := util.GenerateRandomToken(32) // implement this function
-	authToken := &models.AuthToken{UserEmail: user.Email, Token: token, CreatedAt: time.Now()}
-	h.db.Create(authToken)
+	// Generate tokens
+	accessToken := util.GenerateRandomToken(32)
+	refreshToken := util.GenerateRandomToken(64)
 
-	util.RespondWithJSON(w, http.StatusOK, map[string]string{"token": token})
+	now := time.Now()
+	accessExpiry := now.Add(15 * time.Minute)
+	refreshExpiry := now.Add(7 * 24 * time.Hour)
+
+	h.db.Create(&models.AuthToken{
+		UserEmail: user.Email,
+		Token:     accessToken,
+		TokenType: "access",
+		CreatedAt: now,
+		ExpiresAt: accessExpiry,
+	})
+	h.db.Create(&models.AuthToken{
+		UserEmail: user.Email,
+		Token:     refreshToken,
+		TokenType: "refresh",
+		CreatedAt: now,
+		ExpiresAt: refreshExpiry,
+	})
+
+	util.RespondWithJSON(w, http.StatusOK, map[string]string{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+	})
+}
+
+// RefreshToken issues a new access token using a valid refresh token
+func (h *authHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	var payload struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	err := util.GetBody(r.Body, &payload)
+	if err != nil {
+		util.RespondWithError(w, http.StatusBadRequest, "Invalid payload")
+		return
+	}
+
+	token := &models.AuthToken{}
+	if err := h.db.First(token, "token = ? AND token_type = ?", payload.RefreshToken, "refresh").Error; err != nil {
+		util.RespondWithError(w, http.StatusUnauthorized, "Invalid refresh token")
+		return
+	}
+
+	if token.ExpiresAt.Before(time.Now()) {
+		util.RespondWithError(w, http.StatusUnauthorized, "Refresh token expired")
+		return
+	}
+
+	// Create new access token
+	newAccessToken := util.GenerateRandomToken(32)
+	now := time.Now()
+	accessExpiry := now.Add(15 * time.Minute)
+	h.db.Create(&models.AuthToken{
+		UserEmail: token.UserEmail,
+		Token:     newAccessToken,
+		TokenType: "access",
+		CreatedAt: now,
+		ExpiresAt: accessExpiry,
+	})
+
+	util.RespondWithJSON(w, http.StatusOK, map[string]string{
+		"access_token": newAccessToken,
+	})
 }
 
 func (h *authHandler) Logout(w http.ResponseWriter, r *http.Request) {
@@ -75,14 +141,11 @@ func (h *authHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	auth_token := &models.AuthToken{
-		Token: token,
-	}
-
-	h.db.Delete(auth_token)
+	h.db.Where("token = ?", token).Delete(&models.AuthToken{})
 	util.RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Logged out"})
 }
 
+// AuthMiddleware protects routes using access tokens
 func (h *authHandler) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := r.Header.Get("Authorization")
@@ -91,15 +154,18 @@ func (h *authHandler) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		auth_token := &models.AuthToken{
-			Token: token,
-		}
-		if err := h.db.First(auth_token).Error; err != nil {
+		authToken := &models.AuthToken{}
+		if err := h.db.First(authToken, "token = ? AND token_type = ?", token, "access").Error; err != nil {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), util.UserIDKey, auth_token.UserEmail)
+		if authToken.ExpiresAt.Before(time.Now()) {
+			http.Error(w, "Access token expired", http.StatusUnauthorized)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), util.UserIDKey, authToken.UserEmail)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
