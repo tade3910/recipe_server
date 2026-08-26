@@ -66,3 +66,10 @@ func main() {
 	fmt.Printf("Server listening on http://localhost%s\n", addr)
 	log.Fatal(http.ListenAndServe(addr, r))
 }
+
+/**
+* TODO
+Create many recipes
+Export recipes to file
+Import recipes from file
+*/

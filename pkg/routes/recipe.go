@@ -179,6 +179,18 @@ func (handler *recipeHandler) UpdateRecipe(w http.ResponseWriter, r *http.Reques
 
 	updates := make(map[string]any)
 
+	if req.URL != nil {
+		updates["url"] = *req.URL
+	}
+
+	if req.Title != nil {
+		if *req.Title == "" {
+			util.RespondWithError(w, http.StatusBadRequest, fmt.Errorf("title cannot be empty"))
+			return
+		}
+		updates["title"] = *req.Title
+	}
+
 	if req.Title != nil {
 		if *req.Title == "" {
 			util.RespondWithError(w, http.StatusBadRequest, fmt.Errorf("title cannot be empty"))
