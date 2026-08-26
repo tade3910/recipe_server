@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-chi/chi"
 	util "github.com/tade3910/recipe_server/pkg"
 	"github.com/tade3910/recipe_server/pkg/models"
 	"gorm.io/gorm"
@@ -22,7 +23,10 @@ func NewRecipesHandler(db *gorm.DB) *recipesHandler {
 func (handler *recipesHandler) GetRecipes(w http.ResponseWriter, r *http.Request) {
 	pageStr := r.URL.Query().Get("page")
 	limitStr := r.URL.Query().Get("limit")
-	id := r.Context().Value(util.UserIDKey).(string)
+	userEmail, ok := RequireUserEmail(w, r)
+	if !ok {
+		return
+	}
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page < 1 {
@@ -38,7 +42,7 @@ func (handler *recipesHandler) GetRecipes(w http.ResponseWriter, r *http.Request
 
 	var recipes []models.Recipe
 	result := handler.db.Model(&models.Recipe{}).
-		Where("owner = ?", id).
+		Where("owner_email = ?", userEmail).
 		Limit(limit).
 		Offset(offset).
 		Find(&recipes)
@@ -49,4 +53,10 @@ func (handler *recipesHandler) GetRecipes(w http.ResponseWriter, r *http.Request
 	}
 
 	util.RespondWithJSON(w, http.StatusOK, recipes)
+}
+
+func (h *recipesHandler) Routes() http.Handler {
+	r := chi.NewRouter()
+	r.Get("/", h.GetRecipes) // Matches GET /recipes
+	return r
 }

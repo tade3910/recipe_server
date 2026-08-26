@@ -22,9 +22,10 @@ func TestDb(t *testing.T) *gorm.DB {
 		t.Fatalf("failed to connect to test DB: %v", err)
 	}
 
-	if err := db.AutoMigrate(&models.Recipe{}); err != nil {
+	if err := db.AutoMigrate(&models.User{}, &models.Recipe{}, &models.AuthToken{}); err != nil {
 		t.Fatalf("failed to migrate schema: %v", err)
 	}
 
+	test_db = db
 	return db
 }

@@ -47,22 +47,19 @@ func main() {
 	recipeHandler := routes.NewRecipeHandler(db)
 	r.Route("/recipe", func(r chi.Router) {
 		r.Use(auth_handler.AuthMiddleware)
-		r.Post("/", recipeHandler.CreateRecipe)       // e.g. POST /recipe
-		r.Get("/{id}", recipeHandler.GetRecipe)       // e.g. GET /recipe/123
-		r.Put("/{id}", recipeHandler.UpdateRecipe)    // e.g. PUT /recipe/123
-		r.Delete("/{id}", recipeHandler.DeleteRecipe) // e.g. DELETE /recips/123
+		r.Mount("/", recipeHandler.Routes())
 	})
 
 	recipesHandler := routes.NewRecipesHandler(db)
 	r.Route("/recipes", func(r chi.Router) {
 		r.Use(auth_handler.AuthMiddleware)
-		r.Get("", recipesHandler.GetRecipes) // e.g. GET /recipe/123?page=1&limit=10
+		r.Mount("/", recipesHandler.Routes())
 	})
 
 	scraperHandler := routes.NewscraperHandler(db, &services.RecipeScraper{})
 	r.Route("/scrape", func(r chi.Router) {
 		r.Use(auth_handler.AuthMiddleware)
-		r.Post("/", scraperHandler.ParseRecipe)
+		r.Mount("/", scraperHandler.Routes())
 	})
 
 	addr := ":" + loadedEnvs.Port

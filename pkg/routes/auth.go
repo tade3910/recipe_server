@@ -2,6 +2,7 @@ package routes
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -168,4 +169,26 @@ func (h *authHandler) AuthMiddleware(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), util.UserIDKey, authToken.UserEmail)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+var ErrUnauthorized = errors.New("unauthorized: missing or invalid user context")
+
+// GetUserEmail extracts the user email from the request context.
+func GetUserEmail(ctx context.Context) (string, error) {
+	userEmail, ok := ctx.Value(util.UserIDKey).(string)
+	if !ok || userEmail == "" {
+		return "", ErrUnauthorized
+	}
+	return userEmail, nil
+}
+
+// RequireUserEmail extracts the user email or automatically writes a 401 response.
+// Returns (email, true) if valid, or ("", false) if an error response was written.
+func RequireUserEmail(w http.ResponseWriter, r *http.Request) (string, bool) {
+	email, err := GetUserEmail(r.Context())
+	if err != nil {
+		util.RespondWithError(w, http.StatusUnauthorized, "Unauthorized: missing or invalid user context")
+		return "", false
+	}
+	return email, true
 }

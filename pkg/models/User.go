@@ -3,11 +3,13 @@ package models
 import "time"
 
 type User struct {
-	Email    string      `gorm:"primaryKey;not null"`
-	Name     string      `json:"name"`
-	Password string      `gorm:"not null"` // hashed password
-	Recipes  []Recipe    `gorm:"foreignKey:Owner;references:Email;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
-	Tokens   []AuthToken `gorm:"foreignKey:UserEmail;references:Email;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Email    string `gorm:"primaryKey;type:varchar(255);not null"`
+	Name     string `json:"name"`
+	Password string `gorm:"not null"` // hashed password
+
+	//foreignKey points to OwnerEmail, OnDelete changed to CASCADE
+	Recipes []Recipe    `gorm:"foreignKey:OwnerEmail;references:Email;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Tokens  []AuthToken `gorm:"foreignKey:UserEmail;references:Email;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
 // AuthToken represents access or refresh tokens

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/go-chi/chi"
 	util "github.com/tade3910/recipe_server/pkg"
 	"github.com/tade3910/recipe_server/pkg/services"
 	"gorm.io/gorm"
@@ -22,7 +23,16 @@ func NewscraperHandler(db *gorm.DB, scraper services.RecipeScraperInterface) *sc
 }
 
 func (handler *scraperHandler) ParseRecipe(w http.ResponseWriter, r *http.Request) {
-	url := r.URL.Query().Get("url")
+	type requestPayload struct {
+		URL string `json:"url"`
+	}
+	payload := &requestPayload{}
+	err := util.GetBody(r.Body, payload)
+	if err != nil {
+		util.RespondWithError(w, http.StatusBadRequest, "Invalid payload")
+		return
+	}
+	url := payload.URL
 	if strings.TrimSpace(url) == "" {
 		util.RespondWithError(w, http.StatusBadRequest, "No url received")
 	}
@@ -36,4 +46,10 @@ func (handler *scraperHandler) ParseRecipe(w http.ResponseWriter, r *http.Reques
 		"instructions": allInstructions,
 	}
 	util.RespondWithJSON(w, http.StatusOK, response)
+}
+
+func (h *scraperHandler) Routes() http.Handler {
+	r := chi.NewRouter()
+	r.Post("/", h.ParseRecipe)
+	return r
 }

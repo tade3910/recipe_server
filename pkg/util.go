@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -38,16 +39,27 @@ func RespondWithError(w http.ResponseWriter, code int, payload any) error {
 	}
 }
 
-func GetBody[T any](Body io.ReadCloser, bodyStruct *T) error {
-	defer Body.Close()
-	body, err := io.ReadAll(Body)
-	if err != nil {
-		return fmt.Errorf("could not read body")
+func GetBody[T any](body io.ReadCloser, bodyStruct *T) error {
+	defer body.Close()
+
+	decoder := json.NewDecoder(body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(bodyStruct); err != nil {
+		if errors.Is(err, io.EOF) {
+			return fmt.Errorf("request body cannot be empty")
+		}
+		if strings.HasPrefix(err.Error(), "json: unknown field") {
+			fieldName := strings.TrimPrefix(err.Error(), "json: unknown field ")
+			return fmt.Errorf("unknown field %s is not allowed", fieldName)
+		}
+		return fmt.Errorf("invalid body: %w", err)
 	}
-	err = json.Unmarshal(body, bodyStruct)
-	if err != nil {
-		return fmt.Errorf("invalid body")
+
+	if decoder.More() {
+		return fmt.Errorf("body must only contain a single JSON object")
 	}
+
 	return nil
 }
 

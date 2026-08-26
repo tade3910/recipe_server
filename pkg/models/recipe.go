@@ -1,27 +1,48 @@
 package models
 
 import (
-	"fmt"
 	"reflect"
-	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type Recipe struct {
-	Id           string     `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	Url          string     `json:"url" gorm:"not null;index:idx_owner_url,unique"`
-	Title        string     `json:"title" gorm:"not null;check:title <> '';comment:Recipe title must not be empty"`
-	Ingredients  StringList `json:"ingredients" gorm:"type:jsonb;not null;check:json_array_length(ingredients) > 0;comment:Must have at least one ingredient"`
-	Instructions StringList `json:"instructions" gorm:"type:jsonb;not null;check:json_array_length(instructions) > 0;comment:Must have at least one instruction"`
+	// 1. UUID Primary Key with GORM Auto-Generation
+	ID string `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 
-	OwnerEmail string `json:"owner" gorm:"not null;index:idx_owner_url,unique;comment:Owner of the recipe (references User)"`
-	Owner      User   `gorm:"foreignKey:OwnerEmail;references:Email;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
+	// 2. Composite Unique Index on (OwnerEmail, Url)
+	URL string `json:"url" gorm:"not null;index:idx_owner_url,unique;check:url <> ''"`
+
+	Title string `json:"title" gorm:"not null;check:title <> '';comment:Recipe title must not be empty"`
+
+	// 3. Array Checks on JSONB fields
+	Ingredients  StringList `json:"ingredients" gorm:"type:jsonb;not null;check:jsonb_array_length(ingredients) > 0;comment:Must have at least one ingredient"`
+	Instructions StringList `json:"instructions" gorm:"type:jsonb;not null;check:jsonb_array_length(instructions) > 0;comment:Must have at least one instruction"`
+
+	// 4. Foreign Key & Composite Index
+	OwnerEmail string `json:"owner_email" gorm:"not null;index:idx_owner_url,unique;comment:Owner of the recipe"`
+	Owner      User   `json:"owner,omitempty" gorm:"foreignKey:OwnerEmail;references:Email;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+
+	// 5. Standard Timestamps (Best Practice)
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// BeforeCreate hook ensures Go generates a UUID if PostgreSQL's gen_random_uuid() isn't invoked during mock testing
+func (r *Recipe) BeforeCreate(tx *gorm.DB) error {
+	if r.ID == "" {
+		r.ID = uuid.NewString()
+	}
+	return nil
 }
 
 func (actual *Recipe) Equals(other *Recipe) bool {
-	if actual.Id != other.Id {
+	if actual.ID != other.ID {
 		return false
 	}
-	if actual.Url != other.Url {
+	if actual.URL != other.URL {
 		return false
 	}
 	if actual.Title != other.Title {
@@ -37,27 +58,4 @@ func (actual *Recipe) Equals(other *Recipe) bool {
 		return false
 	}
 	return true
-}
-
-func (actual *Recipe) HasRecipeError() error {
-	errors := []string{}
-	if strings.TrimSpace(actual.Url) == "" {
-		errors = append(errors, "url")
-	}
-	if strings.TrimSpace(actual.Title) == "" {
-		errors = append(errors, "title")
-	}
-	if len(actual.Ingredients) == 0 {
-		errors = append(errors, "ingredients")
-	}
-	if len(actual.Instructions) == 0 {
-		errors = append(errors, "instructions")
-	}
-	if strings.TrimSpace(actual.OwnerEmail) == "" {
-		errors = append(errors, "ownerEmail")
-	}
-	if len(errors) != 0 {
-		return fmt.Errorf("following required keys are empty: %s", strings.Join(errors, ","))
-	}
-	return nil
 }
