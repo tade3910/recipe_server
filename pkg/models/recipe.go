@@ -39,9 +39,6 @@ func (r *Recipe) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (actual *Recipe) Equals(other *Recipe) bool {
-	if actual.ID != other.ID {
-		return false
-	}
 	if actual.URL != other.URL {
 		return false
 	}
