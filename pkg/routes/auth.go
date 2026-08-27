@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	util "github.com/tade3910/recipe_server/pkg"
@@ -154,6 +155,8 @@ func (h *authHandler) AuthMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
+		token = strings.TrimPrefix(token, "Bearer ")
+		token = strings.TrimSpace(token)
 
 		authToken := &models.AuthToken{}
 		if err := h.db.First(authToken, "token = ? AND token_type = ?", token, "access").Error; err != nil {
