@@ -1,112 +1,155 @@
 package recipe_test
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
-	util "github.com/tade3910/recipe_server/pkg"
+	"github.com/go-chi/chi"
 	"github.com/tade3910/recipe_server/pkg/models"
+	"github.com/tade3910/recipe_server/pkg/routes"
 	test_util "github.com/tade3910/recipe_server/tests"
 	"github.com/tade3910/recipe_server/tests/mocks"
 	"gorm.io/gorm"
 )
 
-func validateResponse(testDetail *test_util.TestDetails[string], response *http.Response, db *gorm.DB, t *testing.T) {
-	t.Helper()
-	if testDetail.ExpectedResponse == "" {
-		return
-	}
-	actual := ""
-	err := util.GetBody(response.Body, &actual)
-	if err != nil {
-		t.Fatalf("Unexpected error thrown when getting result %s", err.Error())
-	}
-	if actual != testDetail.ExpectedResponse {
-		t.Fatalf("Mismatch: got %+s, want %+s", actual, testDetail.ExpectedResponse)
-	}
+type TestCase struct {
+	Name           string
+	GetTargetID    func(db *gorm.DB) string
+	ExpectedStatus int
+	ExpectedBody   string
+}
 
-	// Check if the mock recipes are still in the database
-	for _, mockRecipe := range testDetail.MockRecipes {
-		var recipe models.Recipe
-		// Query directly by the string Primary Key ID
-		err := db.First(&recipe, "id = ?", mockRecipe.ID).Error
-		if err == nil {
-			t.Errorf("Recipe with ID %s still exists in the database", mockRecipe.Id)
-		} else if err != gorm.ErrRecordNotFound {
-			t.Errorf("Error checking if recipe with ID %s exists: %s", mockRecipe.Id, err.Error())
-		}
-	}
+func setupRouter(db *gorm.DB) http.Handler {
+	r := chi.NewRouter()
+	handler := routes.NewRecipeHandler(db)
+	authHandler := routes.NewAuthHandler(db)
+	r.Route("/recipe", func(r chi.Router) {
+		r.Use(authHandler.AuthMiddleware)
+		r.Delete("/{id}", handler.DeleteRecipe)
+	})
+	chi.Walk(r, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		log.Printf("Registered Route: [%s] %s\n", method, route)
+		return nil
+	})
+	return r
 }
 
 func TestDeleteRecipe(t *testing.T) {
 	db := mocks.TestDb(t)
-	tests := []test_util.TestDetails[string]{
-		{
-			Name:           "Missing target URL",
-			Target:         "/recipe",
-			ExpectedStatus: http.StatusBadRequest,
-		},
-		{
-			Name:           "Delete valid recipe",
-			Target:         fmt.Sprintf("/recipe?url=%s", "https://example.com"),
-			ExpectedStatus: http.StatusOK,
-			MockRecipes: []*models.Recipe{
-				{
-					URL:          "https://example.com",
-					Title:        "Test Pancakes",
-					Ingredients:  []string{"flour", "milk", "egg"},
-					Instructions: []string{"mix ingredients", "cook on pan"},
-				},
-			},
-			ExpectedResponse: "Deleted",
-		},
-		{
-			Name:             "Delete not found recipe",
-			Target:           fmt.Sprintf("/recipe?url=%s", "unknown"),
-			ExpectedStatus:   http.StatusNotFound,
-			ExpectedResponse: "Not Found",
-		},
-		{
-			Name:           "Delete recipe from differnt user",
-			Target:         fmt.Sprintf("/recipe?url=%s", "https://example.com"),
-			ExpectedStatus: http.StatusNotFound,
-			MockRecipes: []*models.Recipe{
-				{
-					URL:          "https://example.com",
-					Title:        "Test Pancakes",
-					Ingredients:  []string{"flour", "milk", "egg"},
-					Instructions: []string{"mix ingredients", "cook on pan"},
-					OwnerEmail:   "different_user@example.com",
-				},
-			},
-		},
-	}
-
 	router := setupRouter(db)
 
-	test_util.DeleteRecipes(db)
-	defer test_util.DeleteRecipes(db)
-	if router == nil {
-		t.Fatal("handler is nil")
+	mockOwnerRecipe := &models.Recipe{
+		URL:          "https://example.com/my-recipe",
+		Title:        "Pancakes",
+		Ingredients:  []string{"flour"},
+		Instructions: []string{"cook"},
+		OwnerEmail:   test_util.DefaultTestUser.Email,
 	}
 
-	// Run the test function
+	mockOtherUserRecipe := &models.Recipe{
+		URL:          "https://example.com/other-recipe",
+		Title:        "Waffles",
+		Ingredients:  []string{"flour"},
+		Instructions: []string{"cook"},
+		OwnerEmail:   "other_user@example.com",
+	}
+
+	tests := []TestCase{
+		{
+			Name: "Delete valid owned recipe succeeds",
+			GetTargetID: func(db *gorm.DB) string {
+				var r models.Recipe
+				db.First(&r, "url = ?", mockOwnerRecipe.URL)
+				return r.ID
+			},
+			ExpectedStatus: http.StatusOK,
+			ExpectedBody:   `"Deleted"`,
+		},
+		{
+			Name: "Delete recipe owned by another user returns 404",
+			GetTargetID: func(db *gorm.DB) string {
+				var r models.Recipe
+				db.First(&r, "url = ?", mockOtherUserRecipe.URL)
+				return r.ID
+			},
+			ExpectedStatus: http.StatusForbidden,
+			ExpectedBody:   `you are not the owner of this recipe`,
+		},
+		{
+			Name: "Delete non-existent recipe ID returns 404",
+			GetTargetID: func(db *gorm.DB) string {
+				return "00000000-0000-0000-0000-000000000000"
+			},
+			ExpectedStatus: http.StatusNotFound,
+			ExpectedBody:   `"Recipe not found"`,
+		},
+		{
+			Name: "Delete recipe with missing ID in path",
+			GetTargetID: func(db *gorm.DB) string {
+				return ""
+			},
+			ExpectedStatus: http.StatusNotFound,
+			ExpectedBody:   "404 page not found\n",
+		},
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.Name, func(t *testing.T) {
-			if err := test_util.InsertRecipes(t, db, tt.MockRecipes); err != nil {
-				t.Fatalf("failed to insert mock recipes: %v", err)
+			// 1. Clean slate for each sub-test
+			test_util.ClearDatabase(db)
+			if err := test_util.InsertRecipes(t, db, []*models.Recipe{mockOwnerRecipe, mockOtherUserRecipe}); err != nil {
+				t.Fatalf("failed to seed test recipes: %v", err)
 			}
-			req := httptest.NewRequest(http.MethodDelete, tt.Target, nil)
-			w := httptest.NewRecorder()
+			t.Cleanup(func() { test_util.ClearDatabase(db) })
 
+			var expectedCount int64
+			db.Model(&models.Recipe{}).Count(&expectedCount)
+
+			validToken := test_util.CreateTestToken(t, db, test_util.DefaultTestUser.Email)
+
+			// 2. Build target URL path dynamically
+			targetID := tt.GetTargetID(db)
+			urlPath := "/recipe/" + targetID
+			if targetID == "" {
+				urlPath = "/recipe/"
+			}
+
+			// 3. Make HTTP request
+			req := httptest.NewRequest(http.MethodDelete, urlPath, nil)
+			req.Header.Set("Authorization", "Bearer "+validToken)
+
+			w := httptest.NewRecorder()
 			router.ServeHTTP(w, req)
 
+			// 4. Assert status code
 			if w.Code != tt.ExpectedStatus {
-				t.Errorf("%s: expected %d, got %d", tt.Name, tt.ExpectedStatus, w.Code)
+				t.Fatalf("%s: expected status %d, got %d. Body: %s", tt.Name, tt.ExpectedStatus, w.Code, w.Body.String())
 			}
-			validateResponse(&tt, w.Result(), db, t)
+
+			// 5. Assert response body match
+			if !strings.Contains(w.Body.String(), tt.ExpectedBody) {
+				t.Errorf("%s: expected body to contain %q, got %q", tt.Name, tt.ExpectedBody, w.Body.String())
+			}
+
+			// 6. DB sanity check for successful deletes
+			if tt.ExpectedStatus == http.StatusOK {
+				var count int64
+				db.Model(&models.Recipe{}).Where("id = ?", targetID).Count(&count)
+				if count != 0 {
+					t.Errorf("%s: recipe was expected to be deleted from DB, but still exists", tt.Name)
+				}
+				expectedCount--
+			}
+
+			var finalCount int64
+			db.Model(&models.Recipe{}).Count(&finalCount)
+
+			if finalCount != expectedCount {
+				t.Errorf("expected DB count to decrease by 1 (want %d, got %d)", expectedCount, finalCount)
+			}
 		})
 	}
 }
