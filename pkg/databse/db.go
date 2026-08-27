@@ -23,8 +23,13 @@ func Init() *gorm.DB {
 		log.Fatalln(err)
 	}
 
-	db.AutoMigrate(&models.Recipe{})
-	db.AutoMigrate(&models.User{})
-
+	err = db.AutoMigrate(
+		&models.User{},
+		&models.Recipe{},
+		&models.AuthToken{},
+	)
+	if err != nil {
+		log.Fatalln(err)
+	}
 	return db
 }
