@@ -2,7 +2,10 @@ package tests
 
 import (
 	"fmt"
+	"math/rand/v2"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/tade3910/recipe_server/pkg/models"
 	"gorm.io/gorm"
@@ -26,6 +29,27 @@ func ClearDatabase(db *gorm.DB) {
 	db.Exec("TRUNCATE TABLE recipes, users, auth_tokens RESTART IDENTITY CASCADE")
 }
 
+func RandomString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	var sb strings.Builder
+	sb.Grow(length)
+	for range length {
+		// rand.IntN provides uniform pseudo-random distributions
+		sb.WriteByte(charset[rand.IntN(len(charset))])
+	}
+	return sb.String()
+}
+
+func InsertUser(t *testing.T, db *gorm.DB, email string) error {
+	t.Helper()
+	user := &models.User{
+		Email:    email,
+		Name:     RandomString(10) + " " + RandomString(10),
+		Password: RandomString(20), // In a real scenario, this should be a hashed password
+	}
+	return db.FirstOrCreate(user).Error
+}
+
 func InsertRecipes(t *testing.T, db *gorm.DB, recipes []*models.Recipe) error {
 	t.Helper()
 	if len(recipes) == 0 {
@@ -42,16 +66,34 @@ func InsertRecipes(t *testing.T, db *gorm.DB, recipes []*models.Recipe) error {
 		if r.OwnerEmail == "" {
 			r.OwnerEmail = DefaultTestUser.Email
 		}
+		if r.OwnerEmail != DefaultTestUser.Email {
+			err := InsertUser(t, db, r.OwnerEmail)
+			if err != nil {
+				return fmt.Errorf("failed to insert owner user %s: %w", r.OwnerEmail, err)
+			}
+		}
 	}
 
 	// 3. Insert recipes
 	return db.Create(recipes).Error
 }
 
-type TestDetails[T any] struct {
-	Name             string
-	Target           string
-	ExpectedStatus   int
-	MockRecipes      []*models.Recipe
-	ExpectedResponse T
+func CreateTestToken(t *testing.T, db *gorm.DB, email string) string {
+	t.Helper()
+
+	tokenString := "test_access_token_" + email
+
+	token := &models.AuthToken{
+		UserEmail: email,
+		Token:     tokenString,
+		TokenType: "access",
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(1 * time.Hour), // Valid for test duration
+	}
+
+	if err := db.Create(token).Error; err != nil {
+		t.Fatalf("failed to insert test auth token: %v", err)
+	}
+
+	return tokenString
 }
