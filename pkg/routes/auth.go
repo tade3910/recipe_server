@@ -26,6 +26,36 @@ type authPayload struct {
 	Password string
 }
 
+func (h *authHandler) respondWithToken(email string, w http.ResponseWriter) {
+	// Generate tokens
+	accessToken := util.GenerateRandomToken(32)
+	refreshToken := util.GenerateRandomToken(64)
+
+	now := time.Now()
+	accessExpiry := now.Add(15 * time.Minute)
+	refreshExpiry := now.Add(7 * 24 * time.Hour)
+
+	h.db.Create(&models.AuthToken{
+		UserEmail: email,
+		Token:     accessToken,
+		TokenType: "access",
+		CreatedAt: now,
+		ExpiresAt: accessExpiry,
+	})
+	h.db.Create(&models.AuthToken{
+		UserEmail: email,
+		Token:     refreshToken,
+		TokenType: "refresh",
+		CreatedAt: now,
+		ExpiresAt: refreshExpiry,
+	})
+
+	util.RespondWithJSON(w, http.StatusOK, map[string]string{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+	})
+}
+
 // SignUp registers a new user
 func (h *authHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 	payload := &authPayload{}
@@ -41,11 +71,7 @@ func (h *authHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 		util.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-
-	util.RespondWithJSON(w, http.StatusCreated, map[string]string{
-		"email": user.Email,
-		"name":  user.Name,
-	})
+	h.respondWithToken(payload.Email, w)
 }
 
 // SignIn generates access + refresh tokens
@@ -67,34 +93,7 @@ func (h *authHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 		util.RespondWithError(w, http.StatusUnauthorized, "Invalid credentials")
 		return
 	}
-
-	// Generate tokens
-	accessToken := util.GenerateRandomToken(32)
-	refreshToken := util.GenerateRandomToken(64)
-
-	now := time.Now()
-	accessExpiry := now.Add(15 * time.Minute)
-	refreshExpiry := now.Add(7 * 24 * time.Hour)
-
-	h.db.Create(&models.AuthToken{
-		UserEmail: user.Email,
-		Token:     accessToken,
-		TokenType: "access",
-		CreatedAt: now,
-		ExpiresAt: accessExpiry,
-	})
-	h.db.Create(&models.AuthToken{
-		UserEmail: user.Email,
-		Token:     refreshToken,
-		TokenType: "refresh",
-		CreatedAt: now,
-		ExpiresAt: refreshExpiry,
-	})
-
-	util.RespondWithJSON(w, http.StatusOK, map[string]string{
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
-	})
+	h.respondWithToken(payload.Email, w)
 }
 
 // RefreshToken issues a new access token using a valid refresh token
