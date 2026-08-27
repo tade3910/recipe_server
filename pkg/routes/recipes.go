@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/go-chi/chi"
 	util "github.com/tade3910/recipe_server/pkg"
 	"github.com/tade3910/recipe_server/pkg/models"
 	"gorm.io/gorm"
@@ -53,10 +52,4 @@ func (handler *recipesHandler) GetRecipes(w http.ResponseWriter, r *http.Request
 	}
 
 	util.RespondWithJSON(w, http.StatusOK, recipes)
-}
-
-func (h *recipesHandler) Routes() http.Handler {
-	r := chi.NewRouter()
-	r.Get("/", h.GetRecipes) // Matches GET /recipes
-	return r
 }

@@ -33,37 +33,45 @@ func main() {
 		MaxAge:           300, // 5 minutes
 	}))
 
-	auth_handler := routes.NewAuthHandler(db)
+	authHandler := routes.NewAuthHandler(db)
 	r.Route("/auth", func(r chi.Router) {
-		r.Post("/signup", auth_handler.SignUp)
-		r.Post("/signin", auth_handler.SignIn)
-		r.Post("/refresh", auth_handler.SignIn)
+		r.Post("/signup", authHandler.SignUp)
+		r.Post("/signin", authHandler.SignIn)
+		r.Post("/refresh", authHandler.SignIn)
 		r.Group(func(r chi.Router) {
-			r.Use(auth_handler.AuthMiddleware)
-			r.Post("/logout", auth_handler.Logout)
+			r.Use(authHandler.AuthMiddleware)
+			r.Post("/logout", authHandler.Logout)
 		})
 	})
 
 	recipeHandler := routes.NewRecipeHandler(db)
 	r.Route("/recipe", func(r chi.Router) {
-		r.Use(auth_handler.AuthMiddleware)
-		r.Mount("/", recipeHandler.Routes())
+		r.Use(authHandler.AuthMiddleware)
+		r.Post("/", recipeHandler.CreateRecipe)
+		r.Get("/{id}", recipeHandler.GetRecipe)
+		r.Put("/{id}", recipeHandler.UpdateRecipe)
+		r.Delete("/{id}", recipeHandler.DeleteRecipe)
 	})
 
 	recipesHandler := routes.NewRecipesHandler(db)
 	r.Route("/recipes", func(r chi.Router) {
-		r.Use(auth_handler.AuthMiddleware)
-		r.Mount("/", recipesHandler.Routes())
+		r.Use(authHandler.AuthMiddleware)
+		r.Get("/", recipesHandler.GetRecipes)
 	})
 
 	scraperHandler := routes.NewscraperHandler(db, &services.RecipeScraper{})
 	r.Route("/scrape", func(r chi.Router) {
-		r.Use(auth_handler.AuthMiddleware)
-		r.Mount("/", scraperHandler.Routes())
+		r.Use(authHandler.AuthMiddleware)
+		r.Post("/", scraperHandler.ParseRecipe)
 	})
 
 	addr := ":" + loadedEnvs.Port
 	fmt.Printf("Server listening on http://localhost%s\n", addr)
+	// Log all registered routes
+	chi.Walk(r, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		log.Printf("Registered Route: [%s] %s\n", method, route)
+		return nil
+	})
 	log.Fatal(http.ListenAndServe(addr, r))
 }
 

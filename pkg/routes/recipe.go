@@ -238,12 +238,3 @@ func (handler *recipeHandler) UpdateRecipe(w http.ResponseWriter, r *http.Reques
 
 	util.RespondWithJSON(w, http.StatusOK, updatedRecipe)
 }
-
-func (h *recipeHandler) Routes() http.Handler {
-	r := chi.NewRouter()
-	r.Post("/", h.CreateRecipe)
-	r.Get("/{id}", h.GetRecipe)
-	r.Put("/{id}", h.UpdateRecipe)
-	r.Delete("/{id}", h.DeleteRecipe)
-	return r
-}
