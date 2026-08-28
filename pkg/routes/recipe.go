@@ -3,10 +3,12 @@ package routes
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi"
+	"github.com/google/uuid"
 	util "github.com/tade3910/recipe_server/pkg"
 	"github.com/tade3910/recipe_server/pkg/dto"
 	"github.com/tade3910/recipe_server/pkg/models"
@@ -55,10 +57,17 @@ func (handler *recipeHandler) requireId(w http.ResponseWriter, r *http.Request) 
 		util.RespondWithError(w, http.StatusBadRequest, fmt.Errorf("missing recipe id"))
 		return "", false
 	}
+
+	_, err := uuid.Parse(id)
+	if err != nil {
+		util.RespondWithError(w, http.StatusBadRequest, errors.New("invalid recipe ID format"))
+		return "", false
+	}
 	return id, true
 }
 
 func (handler *recipeHandler) CreateRecipe(w http.ResponseWriter, r *http.Request) {
+	log.Println("Creating recipe")
 	userEmail, ok := RequireUserEmail(w, r)
 	if !ok {
 		return
@@ -69,33 +78,12 @@ func (handler *recipeHandler) CreateRecipe(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var reqErrors []string
-	if strings.TrimSpace(req.URL) == "" {
-		reqErrors = append(reqErrors, "url")
-	}
-	if strings.TrimSpace(req.Title) == "" {
-		reqErrors = append(reqErrors, "title")
-	}
-	if len(req.Ingredients) == 0 {
-		reqErrors = append(reqErrors, "ingredients")
-	}
-	if len(req.Instructions) == 0 {
-		reqErrors = append(reqErrors, "instructions")
-	}
-
-	if len(reqErrors) > 0 {
-		err := fmt.Errorf("the following required fields are missing or empty: %s", strings.Join(reqErrors, ", "))
+	if err := req.Validate(); err != nil {
 		util.RespondWithError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	recipe := &models.Recipe{
-		URL:          strings.TrimSpace(req.URL),
-		Title:        strings.TrimSpace(req.Title),
-		Ingredients:  req.Ingredients,
-		Instructions: req.Instructions,
-		OwnerEmail:   userEmail,
-	}
+	recipe := req.ToRecipe(userEmail)
 
 	result := handler.db.Create(recipe)
 	if result.Error != nil {
@@ -179,33 +167,38 @@ func (handler *recipeHandler) UpdateRecipe(w http.ResponseWriter, r *http.Reques
 
 	updates := make(map[string]any)
 
+	if req.Title != nil {
+		if *req.Title == "" {
+			util.RespondWithError(w, http.StatusBadRequest, fmt.Errorf("Title cannot be empty"))
+			return
+		}
+		updates["title"] = *req.Title
+	}
+
 	if req.URL != nil {
+		if *req.URL == "" {
+			util.RespondWithError(w, http.StatusBadRequest, fmt.Errorf("URL cannot be empty"))
+			return
+		}
 		updates["url"] = *req.URL
 	}
 
-	if req.Title != nil {
-		if *req.Title == "" {
-			util.RespondWithError(w, http.StatusBadRequest, fmt.Errorf("title cannot be empty"))
-			return
-		}
-		updates["title"] = *req.Title
-	}
-
-	if req.Title != nil {
-		if *req.Title == "" {
-			util.RespondWithError(w, http.StatusBadRequest, fmt.Errorf("title cannot be empty"))
-			return
-		}
-		updates["title"] = *req.Title
-	}
-
 	if req.Ingredients != nil {
+		if len(*req.Ingredients) == 0 {
+			util.RespondWithError(w, http.StatusBadRequest, fmt.Errorf("Ingredients cannot be empty"))
+			return
+		}
 		updates["ingredients"] = *req.Ingredients
 	}
 
 	if req.Instructions != nil {
+		if len(*req.Instructions) == 0 {
+			util.RespondWithError(w, http.StatusBadRequest, fmt.Errorf("Instructions cannot be empty"))
+			return
+		}
 		updates["instructions"] = *req.Instructions
 	}
+	log.Printf("updates are %v\n", updates)
 
 	if len(updates) == 0 {
 		util.RespondWithError(w, http.StatusBadRequest, fmt.Errorf("at least one field (title, ingredients, or instructions) must be provided"))
