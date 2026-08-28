@@ -81,14 +81,20 @@ func InsertRecipes(t *testing.T, db *gorm.DB, recipes []*models.Recipe) error {
 func CreateTestToken(t *testing.T, db *gorm.DB, email string) string {
 	t.Helper()
 
-	tokenString := "test_access_token_" + email
+	// 1. Ensure user exists first so foreign key doesn't fail
+	if err := InsertUser(t, db, email); err != nil {
+		t.Fatalf("failed to ensure user exists for token creation: %v", err)
+	}
+
+	// 2. Generate unique token per call to avoid unique constraint collisions
+	tokenString := fmt.Sprintf("test_access_token_%s_%s", email, RandomString(6))
 
 	token := &models.AuthToken{
 		UserEmail: email,
 		Token:     tokenString,
 		TokenType: "access",
 		CreatedAt: time.Now(),
-		ExpiresAt: time.Now().Add(1 * time.Hour), // Valid for test duration
+		ExpiresAt: time.Now().Add(1 * time.Hour),
 	}
 
 	if err := db.Create(token).Error; err != nil {
