@@ -1,11 +1,9 @@
 package recipe_test
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/go-chi/chi"
@@ -93,6 +91,14 @@ func TestGetRecipe(t *testing.T) {
 			ExpectedStatus: http.StatusForbidden,
 			ExpectedBody:   `you are not the owner of this recipe`,
 		},
+		{
+			Name:           "Get recipe with invalid id",
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedBody:   "invalid recipe ID format",
+			GetTargetID: func(db *gorm.DB) string {
+				return "invalid_id"
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.Name, func(t *testing.T) {
@@ -119,30 +125,7 @@ func TestGetRecipe(t *testing.T) {
 			w := httptest.NewRecorder()
 			router.ServeHTTP(w, req)
 
-			// 4. Assert status code
-			if w.Code != tt.ExpectedStatus {
-				t.Fatalf("%s: expected status %d, got %d. Body: %s", tt.Name, tt.ExpectedStatus, w.Code, w.Body.String())
-			}
-
-			switch expected := tt.ExpectedBody.(type) {
-			case string:
-				// 1. You must explicitly write the 'if' keyword
-				// 2. Use 'expected' (the string), not 'tt.ExpectedBody' (the any)
-				if !strings.Contains(w.Body.String(), expected) {
-					t.Errorf("%s: expected body to contain %q, got %q", tt.Name, expected, w.Body.String())
-				}
-			case *models.Recipe:
-				var actual models.Recipe
-				err := json.Unmarshal(w.Body.Bytes(), &actual)
-				if err != nil {
-					t.Fatalf("%s: failed to unmarshal response body: %v", tt.Name, err)
-				}
-				if !actual.Equals(expected) {
-					t.Errorf("%s: expected recipe %+v, got %+v", tt.Name, expected, actual)
-				}
-			default:
-				t.Fatalf("%s: unexpected type for ExpectedBody: %T", tt.Name, tt.ExpectedBody)
-			}
+			AssertResponse(t, w, tt.Name, tt.ExpectedStatus, tt.ExpectedBody)
 
 		})
 	}

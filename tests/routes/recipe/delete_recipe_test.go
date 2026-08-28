@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/go-chi/chi"
@@ -94,6 +93,14 @@ func TestDeleteRecipe(t *testing.T) {
 			ExpectedStatus: http.StatusNotFound,
 			ExpectedBody:   "404 page not found\n",
 		},
+		{
+			Name:           "Delete recipe with invalid id",
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedBody:   "invalid recipe ID format",
+			GetTargetID: func(db *gorm.DB) string {
+				return "invalid_id"
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -124,15 +131,7 @@ func TestDeleteRecipe(t *testing.T) {
 			w := httptest.NewRecorder()
 			router.ServeHTTP(w, req)
 
-			// 4. Assert status code
-			if w.Code != tt.ExpectedStatus {
-				t.Fatalf("%s: expected status %d, got %d. Body: %s", tt.Name, tt.ExpectedStatus, w.Code, w.Body.String())
-			}
-
-			// 5. Assert response body match
-			if !strings.Contains(w.Body.String(), tt.ExpectedBody) {
-				t.Errorf("%s: expected body to contain %q, got %q", tt.Name, tt.ExpectedBody, w.Body.String())
-			}
+			AssertResponse(t, w, tt.Name, tt.ExpectedStatus, tt.ExpectedBody)
 
 			// 6. DB sanity check for successful deletes
 			if tt.ExpectedStatus == http.StatusOK {
