@@ -165,12 +165,11 @@ func TestCreateRecipe(t *testing.T) {
 			ExpectedBody:   "required fields are missing or empty: instructions",
 		},
 	}
-
+	t.Cleanup(func() { test_util.ClearDatabase(db) })
 	for _, tt := range tests {
 		t.Run(tt.Name, func(t *testing.T) {
 			// 1. Clean slate for each sub-test
 			test_util.ClearDatabase(db)
-			t.Cleanup(func() { test_util.ClearDatabase(db) })
 
 			err := test_util.InsertUser(t, db, test_util.DefaultTestUser.Email)
 			if err != nil {

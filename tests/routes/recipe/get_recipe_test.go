@@ -100,6 +100,7 @@ func TestGetRecipe(t *testing.T) {
 			},
 		},
 	}
+	t.Cleanup(func() { test_util.ClearDatabase(db) })
 	for _, tt := range tests {
 		t.Run(tt.Name, func(t *testing.T) {
 			// 1. Clean slate for each sub-test
@@ -107,7 +108,6 @@ func TestGetRecipe(t *testing.T) {
 			if err := test_util.InsertRecipes(t, db, []*models.Recipe{mockOwnerRecipe, mockOtherUserRecipe}); err != nil {
 				t.Fatalf("failed to seed test recipes: %v", err)
 			}
-			t.Cleanup(func() { test_util.ClearDatabase(db) })
 
 			validToken := test_util.CreateTestToken(t, db, test_util.DefaultTestUser.Email)
 
