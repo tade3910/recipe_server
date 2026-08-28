@@ -74,10 +74,3 @@ func main() {
 	})
 	log.Fatal(http.ListenAndServe(addr, r))
 }
-
-/**
-* TODO
-Create many recipes
-Export recipes to file
-Import recipes from file
-*/
