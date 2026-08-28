@@ -1,6 +1,7 @@
 package models
 
 import (
+	"log"
 	"reflect"
 	"time"
 
@@ -40,18 +41,23 @@ func (r *Recipe) BeforeCreate(tx *gorm.DB) error {
 
 func (actual *Recipe) Equals(other *Recipe) bool {
 	if actual.URL != other.URL {
+		log.Println("URL is different")
 		return false
 	}
 	if actual.Title != other.Title {
+		log.Println("Title is different")
 		return false
 	}
 	if !reflect.DeepEqual(actual.Ingredients, other.Ingredients) {
+		log.Println("Ingredients are different")
 		return false
 	}
 	if !reflect.DeepEqual(actual.Instructions, other.Instructions) {
+		log.Println("Instructions are different")
 		return false
 	}
 	if actual.OwnerEmail != other.OwnerEmail {
+		log.Println("OwnerEmail is different")
 		return false
 	}
 	return true
